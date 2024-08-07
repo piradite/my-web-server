@@ -5,6 +5,7 @@ const path = require('path');
 const bodyParser = require('body-parser');
 const helmet = require('helmet');
 const cheerio = require('cheerio');
+const cookieParser = require('cookie-parser');
 
 dotenv.config();
 
@@ -14,29 +15,8 @@ const port = 3001;
 app.use(bodyParser.json());
 app.use(helmet());
 app.use(cors());
+app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
-
-// In-memory counters
-let visits = 0;
-let uniqueVisitors = new Set();
-let onSite = 0;
-
-// Function to simulate visitors
-const updateCounters = () => {
-  visits++;
-  // Simulate a unique visitor by adding an ID or IP address
-  uniqueVisitors.add('unique-visitor-id'); // Replace with actual unique identifier
-};
-
-// Update counters every 15 seconds
-setInterval(() => {
-  console.log(`Visits: ${visits}, Unique Visitors: ${uniqueVisitors.size}, On-site: ${onSite}`);
-}, 15000);
-
-// Update on-site counter every 5 seconds
-setInterval(() => {
-  console.log(`Current On-site: ${onSite}`);
-}, 5000);
 
 const normalizeCode = code => code.toLowerCase().replace(/[^a-z0-9]/g, '');
 
@@ -75,7 +55,36 @@ const generateValidHtml = () => `
   </body>
 `;
 
+const hitCounter = {
+  visits: 0,
+  uniqueVisitors: new Set(),
+  onSite: new Set(),
+};
+
+const updateHitCounter = (req) => {
+  hitCounter.visits += 1;
+
+  // Track unique visitors using IP address or cookies
+  const visitorIp = req.ip;
+  const visitorCookie = req.cookies.visitorId;
+
+  if (visitorCookie) {
+    hitCounter.uniqueVisitors.add(visitorCookie);
+  } else {
+    const newVisitorId = Math.random().toString(36).substr(2, 9);
+    res.cookie('visitorId', newVisitorId, { maxAge: 365 * 24 * 60 * 60 * 1000 }); // 1 year
+    hitCounter.uniqueVisitors.add(newVisitorId);
+  }
+
+  hitCounter.onSite.add(visitorIp);
+
+  // Remove the visitor IP after a short delay (e.g., 5 seconds)
+  setTimeout(() => hitCounter.onSite.delete(visitorIp), 5000);
+};
+
 app.post('/', (req, res) => {
+  updateHitCounter(req);
+
   const { code } = req.body;
   if (typeof code !== 'string') return res.status(400).json({ success: false, message: 'Invalid code format' });
 
@@ -83,7 +92,6 @@ app.post('/', (req, res) => {
   const validCode = process.env.CODE;
 
   if (normalizedCode === validCode) {
-    updateCounters(); // Update counters when valid code is received
     const cleanedHtml = removeUnwantedElements(generateValidHtml());
     setTimeout(() => res.status(200).send(cleanedHtml), 100);
   } else {
@@ -92,23 +100,21 @@ app.post('/', (req, res) => {
 });
 
 app.get('/', (req, res) => {
-  onSite++;
+  updateHitCounter(req);
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.get('/stats', (req, res) => {
+  res.json({
+    visits: hitCounter.visits,
+    uniqueVisitors: hitCounter.uniqueVisitors.size,
+    onSite: hitCounter.onSite.size,
+  });
 });
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).send('Something broke!');
-});
-
-// Decrement on-site counter when a user leaves (for demonstration)
-app.use((req, res, next) => {
-  res.on('finish', () => {
-    if (req.method === 'GET') {
-      onSite--;
-    }
-  });
-  next();
 });
 
 app.listen(port, () => console.log(`Server is running on port ${port}`));
