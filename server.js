@@ -47,18 +47,9 @@ const generateValidHtml = () => `
         <input type="hidden" name="_captcha" value="false">
         <input type="hidden" name="_template" value="table">
         <input type="text" name="_honey" style="display:none">
-        <button type="submit" class="button">Send</button>
+        <button onClick="$.fn.fancybox.close()" type="submit" class="button">Send</button>
       </form>
     </div>
-    <script>
-    document.getElementById('submission-form').addEventListener('submit', function(event) {
-      event.preventDefault(); // Prevent the form from submitting immediately
-      setTimeout(function() {
-        event.target.submit();
-        parent.$.fancybox.close();
-      }, 50);
-    });
-  </script>
   </body>
 `;
 
