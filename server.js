@@ -77,12 +77,16 @@ app.use((err, req, res, next) => {
 
 app.use('/events', eventsRouter);
 
-// Example of broadcasting a cursor position
 app.post('/update-cursor', express.json(), (req, res) => {
-  const { x, y } = req.body;
-  sendToClients({ type: 'cursor', x, y });
+  const { id, x, y } = req.body;
+  if (!id || typeof x !== 'number' || typeof y !== 'number') {
+    return res.status(400).json({ success: false, message: 'Invalid data' });
+  }
+
+  sendToClients({ type: 'cursor', id, x, y });
   res.status(200).json({ success: true });
 });
+
 
 
 app.listen(port, () => console.log(`Server is running on port ${port}`));

@@ -1,4 +1,5 @@
 // events.js
+
 const express = require('express');
 const router = express.Router();
 
@@ -24,7 +25,5 @@ const sendToClients = (data) => {
     client.res.write(`data: ${JSON.stringify(data)}\n\n`);
   });
 };
-
-
 
 module.exports = { router, sendToClients };
