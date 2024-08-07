@@ -1,4 +1,3 @@
-// server.js
 const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
@@ -6,7 +5,6 @@ const path = require('path');
 const bodyParser = require('body-parser');
 const helmet = require('helmet');
 const cheerio = require('cheerio');
-const WebSocket = require('ws');
 
 dotenv.config();
 
@@ -55,31 +53,6 @@ const generateValidHtml = () => `
   </body>
 `;
 
-// WebSocket server setup
-const wss = new WebSocket.Server({ noServer: true });
-
-wss.on('connection', ws => {
-  ws.on('message', message => {
-    // Broadcast the cursor position to all connected clients
-    wss.clients.forEach(client => {
-      if (client !== ws && client.readyState === WebSocket.OPEN) {
-        client.send(message);
-      }
-    });
-  });
-});
-
-// Integrate WebSocket server with Express
-app.server = app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
-});
-
-app.server.on('upgrade', (request, socket, head) => {
-  wss.handleUpgrade(request, socket, head, ws => {
-    wss.emit('connection', ws, request);
-  });
-});
-
 app.post('/', (req, res) => {
   const { code } = req.body;
   if (typeof code !== 'string') return res.status(400).json({ success: false, message: 'Invalid code format' });
@@ -101,3 +74,44 @@ app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).send('Something broke!');
 });
+
+
+
+const clients = new Set();
+
+// SSE endpoint to broadcast cursor positions
+app.get('/events', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  res.flushHeaders();
+
+  const clientId = Date.now();
+  clients.add({ res, clientId });
+
+  req.on('close', () => {
+    clients.delete({ res, clientId });
+  });
+});
+
+const broadcastCursorPosition = (position) => {
+  for (const client of clients) {
+    client.res.write(`data: ${JSON.stringify(position)}\n\n`);
+  }
+};
+
+// Add a new endpoint to receive cursor positions from clients
+app.post('/cursor', (req, res) => {
+  const { x, y } = req.body;
+  if (typeof x === 'number' && typeof y === 'number') {
+    broadcastCursorPosition({ x, y });
+    res.status(200).json({ success: true });
+  } else {
+    res.status(400).json({ success: false, message: 'Invalid position data' });
+  }
+});
+
+
+
+app.listen(port, () => console.log(`Server is running on port ${port}`));
