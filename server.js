@@ -40,23 +40,16 @@ const generateValidHtml = () => `
   <body class="body">
     <p class="centered-text">Write anything to be on my website! (SFW)</p>
     <div class="form-container">
-      <form id="submission-form" action="https://formsubmit.co/4d55ac8e91fc05d02ab1af48c62d1364" method="POST" novalidate class="form">
+      <form action="https://formsubmit.co/4d55ac8e91fc05d02ab1af48c62d1364" method="POST" novalidate class="form">
         <input type="text" name="name" required placeholder="Name" class="input">
         <textarea name="message" rows="2" required placeholder="Your Message" class="textarea"></textarea>
         <input type="hidden" name="_next" value="http://localhost:3000/">
         <input type="hidden" name="_captcha" value="false">
         <input type="hidden" name="_template" value="table">
         <input type="text" name="_honey" style="display:none">
-        <button type="submit" class="button">Send</button>
+        <button data-fancybox-close="" class="f-button is-close-btn" type="submit" class="button">Send</button>
       </form>
     </div>
-    <script>
-      document.getElementById('submission-form').addEventListener('submit', function(event) {
-        setTimeout(function() {
-          document.querySelector('[data-fancybox-close]').click();
-        }, 200);
-      });
-    </script>
   </body>
 `;
 
