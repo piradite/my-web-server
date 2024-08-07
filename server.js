@@ -61,7 +61,7 @@ const hitCounter = {
   onSite: new Set(),
 };
 
-const updateHitCounter = (req) => {
+const updateHitCounter = (req, res) => {
   hitCounter.visits += 1;
 
   // Track unique visitors using IP address or cookies
@@ -83,7 +83,7 @@ const updateHitCounter = (req) => {
 };
 
 app.post('/', (req, res) => {
-  updateHitCounter(req);
+  updateHitCounter(req, res);
 
   const { code } = req.body;
   if (typeof code !== 'string') return res.status(400).json({ success: false, message: 'Invalid code format' });
@@ -100,7 +100,7 @@ app.post('/', (req, res) => {
 });
 
 app.get('/', (req, res) => {
-  updateHitCounter(req);
+  updateHitCounter(req, res);
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
@@ -111,6 +111,12 @@ app.get('/stats', (req, res) => {
     onSite: hitCounter.onSite.size,
   });
 });
+
+app.post('/update-stats', (req, res) => {
+  updateHitCounter(req, res);
+  res.status(200).json({ success: true });
+});
+
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
