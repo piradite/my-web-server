@@ -52,10 +52,21 @@ const generateValidHtml = () => `
         <input type="hidden" name="_captcha" value="false">
         <input type="hidden" name="_template" value="table">
         <input type="text" name="_honey" style="display:none">
-        <button onClick="Fancybox.close();" type="submit" class="button">Send</button>
+        <button id="submitButton" type="submit" class="button">Send</button>
       </form>
     </div>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        document.getElementById("submitButton").addEventListener("click", function() {
+          if (typeof Fancybox !== "undefined") {
+            Fancybox.close();
+          } else {
+            console.error("Fancybox is not defined");
+          }
+        });
+      });
+    </script>
   </body>
 `;
 
