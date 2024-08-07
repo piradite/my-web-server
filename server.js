@@ -5,7 +5,7 @@ const path = require('path');
 const bodyParser = require('body-parser');
 const helmet = require('helmet');
 const cheerio = require('cheerio');
-
+const { router: eventsRouter, sendToClients } = require('./events');
 dotenv.config();
 
 const app = express();
@@ -15,32 +15,6 @@ app.use(bodyParser.json());
 app.use(helmet());
 app.use(cors());
 app.use(express.static(path.join(__dirname, 'public')));
-const router = express.Router();
-
-let clients = [];
-
-router.get('/events', (req, res) => {
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.flushHeaders();
-
-  const clientId = Date.now();
-  const newClient = { id: clientId, res };
-  clients.push(newClient);
-
-  req.on('close', () => {
-    clients = clients.filter(client => client.id !== clientId);
-  });
-});
-
-const sendToClients = (data) => {
-  clients.forEach(client => {
-    client.res.write(`data: ${JSON.stringify(data)}\n\n`);
-  });
-};
-
-module.exports = { router, sendToClients };
 
 const normalizeCode = code => code.toLowerCase().replace(/[^a-z0-9]/g, '');
 
@@ -101,7 +75,14 @@ app.use((err, req, res, next) => {
   res.status(500).send('Something broke!');
 });
 
+app.use('/events', eventsRouter);
 
+// Example of broadcasting a cursor position
+app.post('/update-cursor', express.json(), (req, res) => {
+  const { x, y } = req.body;
+  sendToClients({ type: 'cursor', x, y });
+  res.status(200).json({ success: true });
+});
 
 
 app.listen(port, () => console.log(`Server is running on port ${port}`));
