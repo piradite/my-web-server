@@ -5,7 +5,7 @@ const path = require('path');
 const bodyParser = require('body-parser');
 const helmet = require('helmet');
 const cheerio = require('cheerio');
-const { router: eventsRouter, sendToClients } = require('./events');
+
 dotenv.config();
 
 const app = express();
@@ -74,19 +74,5 @@ app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).send('Something broke!');
 });
-
-app.use('/events', eventsRouter);
-
-app.post('/update-cursor', express.json(), (req, res) => {
-  const { id, x, y } = req.body;
-  if (!id || typeof x !== 'number' || typeof y !== 'number') {
-    return res.status(400).json({ success: false, message: 'Invalid data' });
-  }
-
-  sendToClients({ type: 'cursor', id, x, y });
-  res.status(200).json({ success: true });
-});
-
-
 
 app.listen(port, () => console.log(`Server is running on port ${port}`));
