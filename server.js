@@ -54,9 +54,9 @@ const generateValidHtml = () => `
     document.getElementById('submission-form').addEventListener('submit', function(event) {
       event.preventDefault(); // Prevent the form from submitting immediately
       setTimeout(function() {
+        event.target.submit();
         parent.$.fancybox.close();
-        event.target.submit(); // Submit the form after closing fancybox
-      }, 200);
+      }, 50);
     });
   </script>
   </body>
