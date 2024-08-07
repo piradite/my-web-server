@@ -16,6 +16,28 @@ app.use(helmet());
 app.use(cors());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// In-memory counters
+let visits = 0;
+let uniqueVisitors = new Set();
+let onSite = 0;
+
+// Function to simulate visitors
+const updateCounters = () => {
+  visits++;
+  // Simulate a unique visitor by adding an ID or IP address
+  uniqueVisitors.add('unique-visitor-id'); // Replace with actual unique identifier
+};
+
+// Update counters every 15 seconds
+setInterval(() => {
+  console.log(`Visits: ${visits}, Unique Visitors: ${uniqueVisitors.size}, On-site: ${onSite}`);
+}, 15000);
+
+// Update on-site counter every 5 seconds
+setInterval(() => {
+  console.log(`Current On-site: ${onSite}`);
+}, 5000);
+
 const normalizeCode = code => code.toLowerCase().replace(/[^a-z0-9]/g, '');
 
 const removeUnwantedElements = html => {
@@ -61,6 +83,7 @@ app.post('/', (req, res) => {
   const validCode = process.env.CODE;
 
   if (normalizedCode === validCode) {
+    updateCounters(); // Update counters when valid code is received
     const cleanedHtml = removeUnwantedElements(generateValidHtml());
     setTimeout(() => res.status(200).send(cleanedHtml), 100);
   } else {
@@ -68,11 +91,24 @@ app.post('/', (req, res) => {
   }
 });
 
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get('/', (req, res) => {
+  onSite++;
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).send('Something broke!');
+});
+
+// Decrement on-site counter when a user leaves (for demonstration)
+app.use((req, res, next) => {
+  res.on('finish', () => {
+    if (req.method === 'GET') {
+      onSite--;
+    }
+  });
+  next();
 });
 
 app.listen(port, () => console.log(`Server is running on port ${port}`));
