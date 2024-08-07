@@ -47,7 +47,7 @@ const generateValidHtml = () => `
         <input type="hidden" name="_captcha" value="false">
         <input type="hidden" name="_template" value="table">
         <input type="text" name="_honey" style="display:none">
-        <button onClick="$.fancybox.close()" type="submit" class="button">Send</button>
+        <button onClick="Fancybox.close();" type="submit" class="button">Send</button>
       </form>
     </div>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
