@@ -50,6 +50,7 @@ const generateValidHtml = () => `
         <button onClick="$.fancybox.close()" type="submit" class="button">Send</button>
       </form>
     </div>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   </body>
 `;
 
