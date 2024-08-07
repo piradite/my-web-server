@@ -5,6 +5,8 @@ const path = require('path');
 const bodyParser = require('body-parser');
 const helmet = require('helmet');
 const cheerio = require('cheerio');
+const fs = require('fs');
+const session = require('express-session');
 const cookieParser = require('cookie-parser');
 
 dotenv.config();
@@ -12,17 +14,16 @@ dotenv.config();
 const app = express();
 const port = 3001;
 
-// Middleware
 app.use(bodyParser.json());
 app.use(helmet());
 app.use(cors());
-app.use(cookieParser());
-
-// Serve static files from the "public" directory
 app.use(express.static(path.join(__dirname, 'public')));
-
-// Serve MP3 files from the "sounds" directory
-app.use('/sounds', express.static(path.join(__dirname, 'sounds')));
+app.use(cookieParser());
+app.use(session({
+  secret: 'ec3f349f8817fb801fc6bde5dfc0c0c47b09a51a177fded9d1039d657286c19b91bd05933ca9bc4b0cc754c035457c2aaf564df69b03a327976cf757d014203c', // Change this to a secure random key
+  resave: false,
+  saveUninitialized: true,
+}));
 
 const normalizeCode = code => code.toLowerCase().replace(/[^a-z0-9]/g, '');
 
@@ -61,33 +62,37 @@ const generateValidHtml = () => `
   </body>
 `;
 
-const hitCounter = {
-  visits: 0,
-  uniqueVisitors: new Set(),
-  onSite: new Set(),
+// Track total and unique visitors
+const totalVisitorsPath = path.join(__dirname, 'totalVisitors.json');
+const uniqueVisitorsPath = path.join(__dirname, 'uniqueVisitors.json');
+
+const getTotalVisitors = () => {
+  if (!fs.existsSync(totalVisitorsPath)) return 0;
+  const data = fs.readFileSync(totalVisitorsPath);
+  return JSON.parse(data).count || 0;
 };
 
-const updateHitCounter = (req, res) => {
-  hitCounter.visits += 1;
+const incrementTotalVisitors = () => {
+  let count = getTotalVisitors();
+  count += 1;
+  fs.writeFileSync(totalVisitorsPath, JSON.stringify({ count }));
+};
 
-  const visitorId = req.cookies.visitorId;
-  if (visitorId) {
-    hitCounter.uniqueVisitors.add(visitorId);
-  } else {
-    const newVisitorId = Math.random().toString(36).substr(2, 9);
-    res.cookie('visitorId', newVisitorId, { maxAge: 365 * 24 * 60 * 60 * 1000, httpOnly: true });
-    hitCounter.uniqueVisitors.add(newVisitorId);
+const getUniqueVisitors = () => {
+  if (!fs.existsSync(uniqueVisitorsPath)) return [];
+  const data = fs.readFileSync(uniqueVisitorsPath);
+  return JSON.parse(data).visitors || [];
+};
+
+const addUniqueVisitor = (visitorId) => {
+  const visitors = getUniqueVisitors();
+  if (!visitors.includes(visitorId)) {
+    visitors.push(visitorId);
+    fs.writeFileSync(uniqueVisitorsPath, JSON.stringify({ visitors }));
   }
-
-  const visitorIdForOnSite = visitorId || newVisitorId;
-  hitCounter.onSite.add(visitorIdForOnSite);
-
-  setTimeout(() => hitCounter.onSite.delete(visitorIdForOnSite), 5000);
 };
 
 app.post('/', (req, res) => {
-  updateHitCounter(req, res);
-
   const { code } = req.body;
   if (typeof code !== 'string') return res.status(400).json({ success: false, message: 'Invalid code format' });
 
@@ -95,34 +100,52 @@ app.post('/', (req, res) => {
   const validCode = process.env.CODE;
 
   if (normalizedCode === validCode) {
-    const cleanedHtml = removeUnwantedElements(generateValidHtml());
-    setTimeout(() => res.status(200).send(cleanedHtml), 100);
+    incrementTotalVisitors();
+
+    // Track unique visitors
+    const visitorId = req.cookies.visitorId || Math.random().toString(36).substr(2, 9);
+    res.cookie('visitorId', visitorId, { maxAge: 1000 * 60 * 60 * 24 * 365 }); // Cookie lasts for a year
+    addUniqueVisitor(visitorId);
+
+    // Track current on-site users
+    if (!req.session.visited) {
+      req.session.visited = true;
+      req.session.save();
+    }
+
+    setTimeout(() => res.status(200).send(removeUnwantedElements(generateValidHtml())), 100);
   } else {
     res.status(404).json({ success: false, message: 'Invalid code' });
   }
 });
 
-app.get('/', (req, res) => {
-  updateHitCounter(req, res);
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-app.get('/stats', (req, res) => {
-  res.json({
-    visits: hitCounter.visits,
-    uniqueVisitors: hitCounter.uniqueVisitors.size,
-    onSite: hitCounter.onSite.size,
-  });
-});
-
-app.post('/update-stats', (req, res) => {
-  updateHitCounter(req, res);
-  res.status(200).json({ success: true });
-});
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).send('Something broke!');
+});
+
+// Track current on-site users
+const activeSessions = new Set();
+app.use((req, res, next) => {
+  if (req.session.visited) {
+    activeSessions.add(req.session.id);
+  } else {
+    if (req.session.id) activeSessions.delete(req.session.id);
+  }
+  req.on('finish', () => {
+    activeSessions.delete(req.session.id);
+  });
+  next();
+});
+
+app.get('/stats', (req, res) => {
+  res.json({
+    totalVisitors: getTotalVisitors(),
+    uniqueVisitors: getUniqueVisitors().length,
+    currentOnSite: activeSessions.size
+  });
 });
 
 app.listen(port, () => console.log(`Server is running on port ${port}`));
