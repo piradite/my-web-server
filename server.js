@@ -25,6 +25,11 @@ const removeUnwantedElements = html => {
 };
 
 const generateValidHtml = () => `
+<script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.umd.js"></script>
+<link
+  rel="stylesheet"
+  href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.css"
+/>
   <style>
     .body { margin: 0; padding: 0; overflow: hidden; }
     .input, .textarea { margin-bottom: 10px; width: calc(100% - 22px); padding: 10px; border: 2px solid white; background: black; color: white; box-sizing: border-box; resize: none; border-radius: 8px; }
