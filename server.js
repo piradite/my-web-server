@@ -25,11 +25,6 @@ const removeUnwantedElements = html => {
 };
 
 const generateValidHtml = () => `
-<script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.umd.js"></script>
-<link
-  rel="stylesheet"
-  href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.css"
-/>
   <style>
     .body { margin: 0; padding: 0; overflow: hidden; }
     .input, .textarea { margin-bottom: 10px; width: calc(100% - 22px); padding: 10px; border: 2px solid white; background: black; color: white; box-sizing: border-box; resize: none; border-radius: 8px; }
@@ -52,19 +47,12 @@ const generateValidHtml = () => `
         <input type="hidden" name="_captcha" value="false">
         <input type="hidden" name="_template" value="table">
         <input type="text" name="_honey" style="display:none">
-        <button id="submitButton" type="submit" class="button">Send</button>
+        <button type="submit" class="button" id="submit-button">Send</button>
       </form>
     </div>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
-      document.addEventListener("DOMContentLoaded", function() {
-        document.getElementById("submitButton").addEventListener("click", function() {
-          if (typeof Fancybox !== "undefined") {
-            Fancybox.close();
-          } else {
-            console.error("Fancybox is not defined");
-          }
-        });
+      document.querySelector('.form').addEventListener('submit', function() {
+        document.getElementById('submit-button').style.display = 'none';
       });
     </script>
   </body>
