@@ -15,6 +15,32 @@ app.use(bodyParser.json());
 app.use(helmet());
 app.use(cors());
 app.use(express.static(path.join(__dirname, 'public')));
+const router = express.Router();
+
+let clients = [];
+
+router.get('/events', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  const clientId = Date.now();
+  const newClient = { id: clientId, res };
+  clients.push(newClient);
+
+  req.on('close', () => {
+    clients = clients.filter(client => client.id !== clientId);
+  });
+});
+
+const sendToClients = (data) => {
+  clients.forEach(client => {
+    client.res.write(`data: ${JSON.stringify(data)}\n\n`);
+  });
+};
+
+module.exports = { router, sendToClients };
 
 const normalizeCode = code => code.toLowerCase().replace(/[^a-z0-9]/g, '');
 
@@ -75,42 +101,6 @@ app.use((err, req, res, next) => {
   res.status(500).send('Something broke!');
 });
 
-
-
-const clients = new Set();
-
-// SSE endpoint to broadcast cursor positions
-app.get('/events', (req, res) => {
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-
-  res.flushHeaders();
-
-  const clientId = Date.now();
-  clients.add({ res, clientId });
-
-  req.on('close', () => {
-    clients.delete({ res, clientId });
-  });
-});
-
-const broadcastCursorPosition = (position) => {
-  for (const client of clients) {
-    client.res.write(`data: ${JSON.stringify(position)}\n\n`);
-  }
-};
-
-// Add a new endpoint to receive cursor positions from clients
-app.post('/cursor', (req, res) => {
-  const { x, y } = req.body;
-  if (typeof x === 'number' && typeof y === 'number') {
-    broadcastCursorPosition({ x, y });
-    res.status(200).json({ success: true });
-  } else {
-    res.status(400).json({ success: false, message: 'Invalid position data' });
-  }
-});
 
 
 
