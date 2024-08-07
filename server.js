@@ -47,14 +47,9 @@ const generateValidHtml = () => `
         <input type="hidden" name="_captcha" value="false">
         <input type="hidden" name="_template" value="table">
         <input type="text" name="_honey" style="display:none">
-        <button type="submit" class="button" id="submit-button">Send</button>
+        <button type="submit" class="button">Send</button>
       </form>
     </div>
-    <script>
-      document.querySelector('.form').addEventListener('submit', function() {
-        document.getElementById('submit-button').style.display = 'none';
-      });
-    </script>
   </body>
 `;
 
