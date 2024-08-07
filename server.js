@@ -1,3 +1,4 @@
+// server.js
 const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
@@ -5,6 +6,7 @@ const path = require('path');
 const bodyParser = require('body-parser');
 const helmet = require('helmet');
 const cheerio = require('cheerio');
+const WebSocket = require('ws');
 
 dotenv.config();
 
@@ -53,6 +55,31 @@ const generateValidHtml = () => `
   </body>
 `;
 
+// WebSocket server setup
+const wss = new WebSocket.Server({ noServer: true });
+
+wss.on('connection', ws => {
+  ws.on('message', message => {
+    // Broadcast the cursor position to all connected clients
+    wss.clients.forEach(client => {
+      if (client !== ws && client.readyState === WebSocket.OPEN) {
+        client.send(message);
+      }
+    });
+  });
+});
+
+// Integrate WebSocket server with Express
+app.server = app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});
+
+app.server.on('upgrade', (request, socket, head) => {
+  wss.handleUpgrade(request, socket, head, ws => {
+    wss.emit('connection', ws, request);
+  });
+});
+
 app.post('/', (req, res) => {
   const { code } = req.body;
   if (typeof code !== 'string') return res.status(400).json({ success: false, message: 'Invalid code format' });
@@ -74,5 +101,3 @@ app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).send('Something broke!');
 });
-
-app.listen(port, () => console.log(`Server is running on port ${port}`));
