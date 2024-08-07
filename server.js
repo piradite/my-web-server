@@ -12,11 +12,17 @@ dotenv.config();
 const app = express();
 const port = 3001;
 
+// Middleware
 app.use(bodyParser.json());
 app.use(helmet());
 app.use(cors());
 app.use(cookieParser());
+
+// Serve static files from the "public" directory
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Serve MP3 files from the "sounds" directory
+app.use('/sounds', express.static(path.join(__dirname, 'sounds')));
 
 const normalizeCode = code => code.toLowerCase().replace(/[^a-z0-9]/g, '');
 
@@ -64,22 +70,19 @@ const hitCounter = {
 const updateHitCounter = (req, res) => {
   hitCounter.visits += 1;
 
-  // Track unique visitors using IP address or cookies
-  const visitorIp = req.ip;
-  const visitorCookie = req.cookies.visitorId;
-
-  if (visitorCookie) {
-    hitCounter.uniqueVisitors.add(visitorCookie);
+  const visitorId = req.cookies.visitorId;
+  if (visitorId) {
+    hitCounter.uniqueVisitors.add(visitorId);
   } else {
     const newVisitorId = Math.random().toString(36).substr(2, 9);
-    res.cookie('visitorId', newVisitorId, { maxAge: 365 * 24 * 60 * 60 * 1000 }); // 1 year
+    res.cookie('visitorId', newVisitorId, { maxAge: 365 * 24 * 60 * 60 * 1000, httpOnly: true });
     hitCounter.uniqueVisitors.add(newVisitorId);
   }
 
-  hitCounter.onSite.add(visitorIp);
+  const visitorIdForOnSite = visitorId || newVisitorId;
+  hitCounter.onSite.add(visitorIdForOnSite);
 
-  // Remove the visitor IP after a short delay (e.g., 5 seconds)
-  setTimeout(() => hitCounter.onSite.delete(visitorIp), 5000);
+  setTimeout(() => hitCounter.onSite.delete(visitorIdForOnSite), 5000);
 };
 
 app.post('/', (req, res) => {
@@ -116,7 +119,6 @@ app.post('/update-stats', (req, res) => {
   updateHitCounter(req, res);
   res.status(200).json({ success: true });
 });
-
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
