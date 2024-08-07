@@ -148,18 +148,28 @@ app.get('/stats', (req, res) => {
   });
 });
 
-// Add the /update-stats endpoint
+// Add this to your server code
 app.post('/update-stats', (req, res) => {
   const { totalVisitors, uniqueVisitors, currentOnSite } = req.body;
 
-  if (typeof totalVisitors !== 'number' || typeof uniqueVisitors !== 'number' || typeof currentOnSite !== 'number') {
-    return res.status(400).json({ success: false, message: 'Invalid data format' });
+  if (
+    typeof totalVisitors !== 'number' ||
+    typeof uniqueVisitors !== 'number' ||
+    typeof currentOnSite !== 'number'
+  ) {
+    return res.status(400).json({ success: false, message: 'Invalid data' });
   }
 
-  fs.writeFileSync(totalVisitorsPath, JSON.stringify({ count: totalVisitors }));
-  fs.writeFileSync(uniqueVisitorsPath, JSON.stringify({ visitors: Array(uniqueVisitors).fill().map((_, i) => `visitor${i}`) })); // Dummy unique visitors data
+  // Update your server-side data here, e.g., save it to a file or database
+  // For demonstration purposes, we're just logging the received data
+  console.log({
+    totalVisitors,
+    uniqueVisitors,
+    currentOnSite,
+  });
 
-  res.json({ success: true, message: 'Stats updated successfully' });
+  res.status(200).json({ success: true });
 });
+
 
 app.listen(port, () => console.log(`Server is running on port ${port}`));
