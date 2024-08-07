@@ -148,4 +148,18 @@ app.get('/stats', (req, res) => {
   });
 });
 
+// Add the /update-stats endpoint
+app.post('/update-stats', (req, res) => {
+  const { totalVisitors, uniqueVisitors, currentOnSite } = req.body;
+
+  if (typeof totalVisitors !== 'number' || typeof uniqueVisitors !== 'number' || typeof currentOnSite !== 'number') {
+    return res.status(400).json({ success: false, message: 'Invalid data format' });
+  }
+
+  fs.writeFileSync(totalVisitorsPath, JSON.stringify({ count: totalVisitors }));
+  fs.writeFileSync(uniqueVisitorsPath, JSON.stringify({ visitors: Array(uniqueVisitors).fill().map((_, i) => `visitor${i}`) })); // Dummy unique visitors data
+
+  res.json({ success: true, message: 'Stats updated successfully' });
+});
+
 app.listen(port, () => console.log(`Server is running on port ${port}`));
