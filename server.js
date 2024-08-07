@@ -47,7 +47,7 @@ const generateValidHtml = () => `
         <input type="hidden" name="_captcha" value="false">
         <input type="hidden" name="_template" value="table">
         <input type="text" name="_honey" style="display:none">
-        <button onClick="$.fn.fancybox.close()" type="submit" class="button">Send</button>
+        <button onClick="$.fancybox.close()" type="submit" class="button">Send</button>
       </form>
     </div>
   </body>
