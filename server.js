@@ -5,25 +5,41 @@ const path = require('path');
 const bodyParser = require('body-parser');
 const helmet = require('helmet');
 const cheerio = require('cheerio');
-const fs = require('fs');
-const session = require('express-session');
 const cookieParser = require('cookie-parser');
+const session = require('express-session');
 
 dotenv.config();
 
 const app = express();
 const port = 3001;
 
+// Middleware
 app.use(bodyParser.json());
+app.use(cookieParser());
+app.use(session({
+  secret: 'some-secret-key',
+  resave: false,
+  saveUninitialized: true,
+  cookie: { secure: false }  // Set `secure: true` if using HTTPS
+}));
 app.use(helmet());
 app.use(cors());
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(cookieParser());
-app.use(session({
-  secret: 'ec3f349f8817fb801fc6bde5dfc0c0c47b09a51a177fded9d1039d657286c19b91bd05933ca9bc4b0cc754c035457c2aaf564df69b03a327976cf757d014203c', // Change this to a secure random key
-  resave: false,
-  saveUninitialized: true,
-}));
+
+// Hit counter variables
+let totalVisitors = 0;
+let uniqueVisitors = new Set();  // To keep track of unique visitors
+let onSiteVisitors = 0;
+
+const secretKey = '9dab45b6c5c3a350a7ed2ea25971aa32cdf1694d5b506baf6ccd10c636a532eec8c11273c9b70a530b273c491add50137539dbbe34f666f23e59fc1dc9cd955f';
+
+// Middleware to update on-site visitors
+app.use((req, res, next) => {
+  if (req.url !== '/hit-counter') {
+    onSiteVisitors++;
+  }
+  next();
+});
 
 const normalizeCode = code => code.toLowerCase().replace(/[^a-z0-9]/g, '');
 
@@ -62,35 +78,41 @@ const generateValidHtml = () => `
   </body>
 `;
 
-// Track total and unique visitors
-const totalVisitorsPath = path.join(__dirname, 'totalVisitors.json');
-const uniqueVisitorsPath = path.join(__dirname, 'uniqueVisitors.json');
+// Hit counter endpoint
+app.all('/hit-counter', (req, res) => {
+  const { key } = req.query;
 
-const getTotalVisitors = () => {
-  if (!fs.existsSync(totalVisitorsPath)) return 0;
-  const data = fs.readFileSync(totalVisitorsPath);
-  return JSON.parse(data).count || 0;
-};
-
-const incrementTotalVisitors = () => {
-  let count = getTotalVisitors();
-  count += 1;
-  fs.writeFileSync(totalVisitorsPath, JSON.stringify({ count }));
-};
-
-const getUniqueVisitors = () => {
-  if (!fs.existsSync(uniqueVisitorsPath)) return [];
-  const data = fs.readFileSync(uniqueVisitorsPath);
-  return JSON.parse(data).visitors || [];
-};
-
-const addUniqueVisitor = (visitorId) => {
-  const visitors = getUniqueVisitors();
-  if (!visitors.includes(visitorId)) {
-    visitors.push(visitorId);
-    fs.writeFileSync(uniqueVisitorsPath, JSON.stringify({ visitors }));
+  if (key !== secretKey) {
+    return res.status(403).json({ success: false, message: 'Forbidden' });
   }
-};
+
+  if (req.method === 'POST') {
+    const ip = req.ip;
+    uniqueVisitors.add(ip);
+    totalVisitors++;
+
+    if (req.session.visited) {
+      // Already visited
+    } else {
+      req.session.visited = true;
+      uniqueVisitors.add(ip);
+    }
+
+    return res.status(200).json({
+      visitors: totalVisitors,
+      uniqueVisitors: uniqueVisitors.size,
+      onSite: onSiteVisitors
+    });
+  } else if (req.method === 'GET') {
+    return res.status(200).json({
+      visitors: totalVisitors,
+      uniqueVisitors: uniqueVisitors.size,
+      onSite: onSiteVisitors
+    });
+  } else {
+    return res.status(405).json({ success: false, message: 'Method Not Allowed' });
+  }
+});
 
 app.post('/', (req, res) => {
   const { code } = req.body;
@@ -100,20 +122,8 @@ app.post('/', (req, res) => {
   const validCode = process.env.CODE;
 
   if (normalizedCode === validCode) {
-    incrementTotalVisitors();
-
-    // Track unique visitors
-    const visitorId = req.cookies.visitorId || Math.random().toString(36).substr(2, 9);
-    res.cookie('visitorId', visitorId, { maxAge: 1000 * 60 * 60 * 24 * 365 }); // Cookie lasts for a year
-    addUniqueVisitor(visitorId);
-
-    // Track current on-site users
-    if (!req.session.visited) {
-      req.session.visited = true;
-      req.session.save();
-    }
-
-    setTimeout(() => res.status(200).send(removeUnwantedElements(generateValidHtml())), 100);
+    const cleanedHtml = removeUnwantedElements(generateValidHtml());
+    setTimeout(() => res.status(200).send(cleanedHtml), 100);
   } else {
     res.status(404).json({ success: false, message: 'Invalid code' });
   }
@@ -125,51 +135,5 @@ app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).send('Something broke!');
 });
-
-// Track current on-site users
-const activeSessions = new Set();
-app.use((req, res, next) => {
-  if (req.session.visited) {
-    activeSessions.add(req.session.id);
-  } else {
-    if (req.session.id) activeSessions.delete(req.session.id);
-  }
-  req.on('finish', () => {
-    activeSessions.delete(req.session.id);
-  });
-  next();
-});
-
-app.get('/stats', (req, res) => {
-  res.json({
-    totalVisitors: getTotalVisitors(),
-    uniqueVisitors: getUniqueVisitors().length,
-    currentOnSite: activeSessions.size
-  });
-});
-
-// Add this to your server code
-app.post('/update-stats', (req, res) => {
-  const { totalVisitors, uniqueVisitors, currentOnSite } = req.body;
-
-  if (
-    typeof totalVisitors !== 'number' ||
-    typeof uniqueVisitors !== 'number' ||
-    typeof currentOnSite !== 'number'
-  ) {
-    return res.status(400).json({ success: false, message: 'Invalid data' });
-  }
-
-  // Update your server-side data here, e.g., save it to a file or database
-  // For demonstration purposes, we're just logging the received data
-  console.log({
-    totalVisitors,
-    uniqueVisitors,
-    currentOnSite,
-  });
-
-  res.status(200).json({ success: true });
-});
-
 
 app.listen(port, () => console.log(`Server is running on port ${port}`));
