@@ -40,7 +40,11 @@ const generateValidHtml = () => `
   <body class="body">
     <p class="centered-text">Write anything to be on my website! (SFW)</p>
     <div class="form-container">
-      <form action="https://formsubmit.co/oliviamaxw@gmail.com" method="POST" novalidate class="form">
+      <form action="https://formsubmit.co/4d55ac8e91fc05d02ab1af48c62d1364" method="POST" novalidate class="form">
+        <input type="hidden" name="_next" value="http://localhost:3000/">
+        <input type="hidden" name="_captcha" value="false">
+        <input type="hidden" name="_template" value="table">
+        <input type="text" name="_honey" style="display:none">
         <input type="text" name="name" required placeholder="Name" class="input">
         <textarea name="message" rows="2" required placeholder="Your Message" class="textarea"></textarea>
         <button type="submit" class="button">Send</button>
