@@ -5,41 +5,16 @@ const path = require('path');
 const bodyParser = require('body-parser');
 const helmet = require('helmet');
 const cheerio = require('cheerio');
-const cookieParser = require('cookie-parser');
-const session = require('express-session');
 
 dotenv.config();
 
 const app = express();
 const port = 3001;
 
-// Middleware
 app.use(bodyParser.json());
-app.use(cookieParser());
-app.use(session({
-  secret: 'some-secret-key',
-  resave: false,
-  saveUninitialized: true,
-  cookie: { secure: false }  // Set `secure: true` if using HTTPS
-}));
 app.use(helmet());
 app.use(cors());
 app.use(express.static(path.join(__dirname, 'public')));
-
-// Hit counter variables
-let totalVisitors = 0;
-let uniqueVisitors = new Set();  // To keep track of unique visitors
-let onSiteVisitors = 0;
-
-const secretKey = '9dab45b6c5c3a350a7ed2ea25971aa32cdf1694d5b506baf6ccd10c636a532eec8c11273c9b70a530b273c491add50137539dbbe34f666f23e59fc1dc9cd955f';
-
-// Middleware to update on-site visitors
-app.use((req, res, next) => {
-  if (req.url !== '/hit-counter') {
-    onSiteVisitors++;
-  }
-  next();
-});
 
 const normalizeCode = code => code.toLowerCase().replace(/[^a-z0-9]/g, '');
 
@@ -77,42 +52,6 @@ const generateValidHtml = () => `
     </div>
   </body>
 `;
-
-// Hit counter endpoint
-app.all('/hit-counter', (req, res) => {
-  const { key } = req.query;
-
-  if (key !== secretKey) {
-    return res.status(403).json({ success: false, message: 'Forbidden' });
-  }
-
-  if (req.method === 'POST') {
-    const ip = req.ip;
-    uniqueVisitors.add(ip);
-    totalVisitors++;
-
-    if (req.session.visited) {
-      // Already visited
-    } else {
-      req.session.visited = true;
-      uniqueVisitors.add(ip);
-    }
-
-    return res.status(200).json({
-      visitors: totalVisitors,
-      uniqueVisitors: uniqueVisitors.size,
-      onSite: onSiteVisitors
-    });
-  } else if (req.method === 'GET') {
-    return res.status(200).json({
-      visitors: totalVisitors,
-      uniqueVisitors: uniqueVisitors.size,
-      onSite: onSiteVisitors
-    });
-  } else {
-    return res.status(405).json({ success: false, message: 'Method Not Allowed' });
-  }
-});
 
 app.post('/', (req, res) => {
   const { code } = req.body;
