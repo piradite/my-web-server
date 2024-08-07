@@ -60,7 +60,6 @@ const generateValidHtml = () => `
   </body>
 `;
 
-
 app.post('/', (req, res) => {
   const { code } = req.body;
   if (typeof code !== 'string') return res.status(400).json({ success: false, message: 'Invalid code format' });
